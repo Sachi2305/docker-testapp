@@ -1,4 +1,4 @@
-name: Automated Semantic Tagging and Release
+name: Automated Tagging and Release
 
 on:
   push:
@@ -16,13 +16,14 @@ jobs:
       - name: Get latest tag
         id: get_tag
         run: |
-          # Get the latest tag (default to 1.0.0 if none)
-          latest_tag=$(git tag --sort=-v:refname | head -n 1)
+          git fetch --tags
+
+          latest_tag=$(git tag --list '1.0.*' --sort=-v:refname | head -n 1)
           if [ -z "$latest_tag" ]; then
             latest_tag="1.0.0"
           fi
-          echo "Latest tag: $latest_tag"
           echo "latest_tag=$latest_tag" >> $GITHUB_OUTPUT
+          echo "Latest tag is: $latest_tag"
 
       - name: Calculate next tag
         id: next_tag
@@ -33,10 +34,10 @@ jobs:
           patch=$(echo $version | cut -d. -f3)
           new_patch=$((patch + 1))
           new_tag="$major.$minor.$new_patch"
-          echo "Next tag: $new_tag"
           echo "new_tag=$new_tag" >> $GITHUB_OUTPUT
+          echo "Next tag will be: $new_tag"
 
-      - name: Create and push tag
+      - name: Create and push new tag
         run: |
           git config user.email "action@github.com"
           git config user.name "GitHub Action"
