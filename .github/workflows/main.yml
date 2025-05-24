@@ -1,4 +1,4 @@
-name: Auto Tag and Release
+name: Create and Release Tag
 
 on:
   push:
@@ -6,46 +6,61 @@ on:
       - main
 
 jobs:
-  tag-and-release:
+  tag-release:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v2
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Get commit messages since last tag
-        id: get_commits
+      - name: Get latest tag
+        id: get-latest-tag
         run: |
-          latest_tag=$(git describe --tags --abbrev=0)
-          echo "Latest tag: $latest_tag"
-          commits=$(git log $latest_tag..HEAD --pretty=format:"%s")
-          echo "$commits"
-          echo "commits=$commits" >> $GITHUB_OUTPUT
+          latest_tag=$(git describe --tags --abbrev=0 || echo "0.0.0")
+          echo "LATEST_TAG=$latest_tag" >> $GITHUB_ENV
 
-      - name: Determine bump type
-        id: bump_type
+      - name: Determine new version
+        id: new-version
         run: |
-          commits="${{ steps.get_commits.outputs.commits }}"
-          bump="patch"
-          if echo "$commits" | grep -q "#major"; then
-            bump="major"
-          elif echo "$commits" | grep -q "#minor"; then
-            bump="minor"
+          major=$(echo "${LATEST_TAG}" | cut -d'.' -f1)
+          minor=$(echo "${LATEST_TAG}" | cut -d'.' -f2)
+          patch=$(echo "${LATEST_TAG}" | cut -d'.' -f3)
+
+          commit_message=$(git log -1 --pretty=%B)
+          
+          if echo "$commit_message" | grep -q "
+
+          \[major\]
+
+          "; then
+            major=$((major + 1))
+            minor=0
+            patch=0
+          elif echo "$commit_message" | grep -q "
+
+          \[minor\]
+
+           "; then
+            minor=$((minor + 1))
+            patch=0
+          else
+            patch=$((patch + 1))
           fi
-          echo "Bump type: $bump"
-          echo "bump=$bump" >> $GITHUB_OUTPUT
 
-      - name: Bump version and push tag
-        id: tag_version
-        uses: mathieudutour/github-tag-action@v6.1
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          default_bump: ${{ steps.bump_type.outputs.bump }}
+          new_tag="${major}.${minor}.${patch}"
+          echo "NEW_TAG=$new_tag" >> $GITHUB_ENV
+          
+      - name: Create new tag
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+          git tag "$NEW_TAG"
+          git push origin "$NEW_TAG"
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.tag_version.outputs.new_tag }}
-          name: Release ${{ steps.tag_version.outputs.new_tag }}
-          body: ${{ steps.tag_version.outputs.changelog }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          tag_name: ${{ env.NEW_TAG }}
+          name: Release ${{ env.NEW_TAG }}
+          draft: false
+          prerelease: false
