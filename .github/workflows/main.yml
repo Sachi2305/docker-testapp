@@ -12,8 +12,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
 
       - name: Auto Tag
         id: autotag
@@ -24,7 +22,7 @@ jobs:
       - name: Get Latest Tag
         id: get_tag
         run: |
-          tag=$(git describe --tags $(git rev-list --tags --max-count=1))
+          tag=$(git describe --tags `git rev-list --tags --max-count=1`)
           echo "Latest tag: $tag"
           echo "tag=$tag" >> $GITHUB_OUTPUT
 
