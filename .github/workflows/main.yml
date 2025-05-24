@@ -22,7 +22,11 @@ jobs:
       - name: Get Latest Tag
         id: get_tag
         run: |
-          tag=$(git describe --tags `git rev-list --tags --max-count=1`)
+          tag=$(git tag --sort=-creatordate | head -n 1)
+          if [ -z "$tag" ]; then
+            echo "❌ No tags found. Skipping release."
+            exit 1
+          fi
           echo "Latest tag: $tag"
           echo "tag=$tag" >> $GITHUB_OUTPUT
 
