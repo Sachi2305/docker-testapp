@@ -1,4 +1,4 @@
-name: Auto Tag and Release
+name: Automated Semantic Tagging
 
 on:
   push:
@@ -6,30 +6,39 @@ on:
       - main
 
 jobs:
-  tag_and_release:
+  tag:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
+        uses: actions/checkout@v2
 
-      - name: Auto Tag
-        id: autotag
-        uses: butlerlogic/action-autotag@1.1.2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Get Latest Tag
+      - name: Get latest tag
+        id: get_tag
         run: |
-          tag=$(git describe --tags $(git rev-list --tags --max-count=1))
-          echo "Latest tag: $tag"
-          echo "tag=$tag" >> $GITHUB_ENV
+          # Get the latest tag (default to 1.0.0 if none)
+          latest_tag=$(git tag --sort=-v:refname | head -n 1)
+          if [ -z "$latest_tag" ]; then
+            latest_tag="1.0.0"
+          fi
+          echo "Latest tag: $latest_tag"
+          echo "latest_tag=$latest_tag" >> $GITHUB_OUTPUT
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ env.tag }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Calculate next tag
+        id: next_tag
+        run: |
+          version=${{ steps.get_tag.outputs.latest_tag }}
+          major=$(echo $version | cut -d. -f1)
+          minor=$(echo $version | cut -d. -f2)
+          patch=$(echo $version | cut -d. -f3)
+          new_patch=$((patch + 1))
+          new_tag="$major.$minor.$new_patch"
+          echo "Next tag: $new_tag"
+          echo "new_tag=$new_tag" >> $GITHUB_OUTPUT
+
+      - name: Create and push tag
+        run: |
+          git config user.email "action@github.com"
+          git config user.name "GitHub Action"
+          git tag ${{ steps.next_tag.outputs.new_tag }}
+          git push origin ${{ steps.next_tag.outputs.new_tag }}
