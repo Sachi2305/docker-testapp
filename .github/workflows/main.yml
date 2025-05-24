@@ -1,4 +1,4 @@
-name: Automated Semantic Tagging
+name: Automated Semantic Tagging and Release
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
       - main
 
 jobs:
-  tag:
+  tag_and_release:
     runs-on: ubuntu-latest
 
     steps:
@@ -42,3 +42,12 @@ jobs:
           git config user.name "GitHub Action"
           git tag ${{ steps.next_tag.outputs.new_tag }}
           git push origin ${{ steps.next_tag.outputs.new_tag }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.next_tag.outputs.new_tag }}
+          name: "Release ${{ steps.next_tag.outputs.new_tag }}"
+          body: "Automated release for version ${{ steps.next_tag.outputs.new_tag }}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
