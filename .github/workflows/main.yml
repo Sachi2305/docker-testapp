@@ -1,4 +1,4 @@
-name: Automated Tagging and Release
+name: Semantic Version Tag and Release
 
 on:
   push:
@@ -13,42 +13,20 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Get latest tag
-        id: get_tag
-        run: |
-          git fetch --tags
-
-          latest_tag=$(git tag --list '1.0.*' --sort=-v:refname | head -n 1)
-          if [ -z "$latest_tag" ]; then
-            latest_tag="1.0.0"
-          fi
-          echo "latest_tag=$latest_tag" >> $GITHUB_OUTPUT
-          echo "Latest tag is: $latest_tag"
-
-      - name: Calculate next tag
-        id: next_tag
-        run: |
-          version=${{ steps.get_tag.outputs.latest_tag }}
-          major=$(echo $version | cut -d. -f1)
-          minor=$(echo $version | cut -d. -f2)
-          patch=$(echo $version | cut -d. -f3)
-          new_patch=$((patch + 1))
-          new_tag="$major.$minor.$new_patch"
-          echo "new_tag=$new_tag" >> $GITHUB_OUTPUT
-          echo "Next tag will be: $new_tag"
-
-      - name: Create and push new tag
-        run: |
-          git config user.email "action@github.com"
-          git config user.name "GitHub Action"
-          git tag ${{ steps.next_tag.outputs.new_tag }}
-          git push origin ${{ steps.next_tag.outputs.new_tag }}
+      - name: Auto Tag based on commit message
+        id: autotag
+        uses: butlerlogic/action-autotag@stable
+        with:
+          tag_prefix: ""
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create GitHub Release
+        if: steps.autotag.outputs.tag != ''
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ steps.next_tag.outputs.new_tag }}
-          name: "Release ${{ steps.next_tag.outputs.new_tag }}"
-          body: "Automated release for version ${{ steps.next_tag.outputs.new_tag }}"
+          tag_name: ${{ steps.autotag.outputs.tag }}
+          name: "Release ${{ steps.autotag.outputs.tag }}"
+          body: "Release created from commit message trigger"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
