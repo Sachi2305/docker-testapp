@@ -12,11 +12,34 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v2
 
+      - name: Get commit messages since last tag
+        id: get_commits
+        run: |
+          latest_tag=$(git describe --tags --abbrev=0)
+          echo "Latest tag: $latest_tag"
+          commits=$(git log $latest_tag..HEAD --pretty=format:"%s")
+          echo "$commits"
+          echo "commits=$commits" >> $GITHUB_OUTPUT
+
+      - name: Determine bump type
+        id: bump_type
+        run: |
+          commits="${{ steps.get_commits.outputs.commits }}"
+          bump="patch"
+          if echo "$commits" | grep -q "#major"; then
+            bump="major"
+          elif echo "$commits" | grep -q "#minor"; then
+            bump="minor"
+          fi
+          echo "Bump type: $bump"
+          echo "bump=$bump" >> $GITHUB_OUTPUT
+
       - name: Bump version and push tag
         id: tag_version
         uses: mathieudutour/github-tag-action@v6.1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          default_bump: ${{ steps.bump_type.outputs.bump }}
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
